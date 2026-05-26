@@ -1,0 +1,25 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: zoo-project-dru-minikube-deployment
+
+deploy:
+  helm:
+    releases:
+
+    # Install ZOO-Project-DRU
+    - name: toil-wes-standalone
+      chartPath: toil-wes-standalone
+      namespace: zoo
+      createNamespace: true
+      setValues:
+        s3.credentials.createSecret: "true"
+        s3.credentials.existingSecret: ""
+
+portForward:
+- resourceType: service
+  resourceName: toil-wes-standalone
+  namespace: zoo
+  port: 8080
+  localPort: 8081
+

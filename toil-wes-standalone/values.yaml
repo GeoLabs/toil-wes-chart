@@ -1,0 +1,44 @@
+replicaCount: 1
+
+image:
+  repository: quay.io/ucsc_cgl/toil
+  tag: "9.4.1-c6a39f2c827899f9a1dd0018ca2b72c675120096-py3.13"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+service:
+  type: ClusterIP
+  port: 8080
+
+awsRegion: us-east-1
+
+s3:
+  endpointUrl: http://s3-service.zoo.svc.cluster.local:9000
+  host: s3-service.zoo.svc.cluster.local
+  port: "9000"
+  useSsl: false
+  addressingStyle: path
+  credentials:
+    existingSecret: s3-service
+    accessKeyKey: rootUser
+    secretKeyKey: rootPassword
+    createSecret: false
+    accessKeyValue: "minio-admin"
+    secretKeyValue: "minio-secret-password"
+
+# Optional additional env vars injected into the Toil WES pod.
+env: {}
+
+resources: {}
+
+nodeSelector: {}
+affinity: {}
+tolerations: []

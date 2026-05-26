@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Toil WES Standalone Helm Chart Values",
+  "type": "object",
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string" },
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string" }
+      },
+      "required": ["repository", "tag", "pullPolicy"]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "type": "string"
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "name": { "type": "string" },
+        "annotations": { "type": "object" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      },
+      "required": ["type", "port"]
+    },
+    "awsRegion": {
+      "type": "string"
+    },
+    "s3": {
+      "type": "object",
+      "properties": {
+        "endpointUrl": { "type": "string" },
+        "host": { "type": "string" },
+        "port": { "type": "string" },
+        "useSsl": { "type": "boolean" },
+        "addressingStyle": {
+          "type": "string",
+          "enum": ["path", "virtual"]
+        },
+        "credentials": {
+          "type": "object",
+          "properties": {
+            "existingSecret": { "type": "string" },
+            "accessKeyKey": { "type": "string" },
+            "secretKeyKey": { "type": "string" },
+            "createSecret": { "type": "boolean" },
+            "accessKeyValue": { "type": "string" },
+            "secretKeyValue": { "type": "string" }
+          },
+          "required": ["accessKeyKey", "secretKeyKey", "createSecret"]
+        }
+      },
+      "required": ["endpointUrl", "host", "port", "useSsl", "addressingStyle", "credentials"]
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean"]
+      }
+    },
+    "resources": {
+      "type": "object"
+    },
+    "nodeSelector": {
+      "type": "object"
+    },
+    "affinity": {
+      "type": "object"
+    },
+    "tolerations": {
+      "type": "array"
+    }
+  },
+  "required": ["replicaCount", "image", "service", "awsRegion", "s3"]
+}

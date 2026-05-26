@@ -1,0 +1,12 @@
+apiVersion: v2
+name: toil-wes-standalone
+description: Standalone Helm chart to deploy a patched Toil WES server
+type: application
+version: 0.1.0
+appVersion: "9.4.1"
+keywords:
+  - toil
+  - wes
+  - cwl
+  - eoepca
+  - s3

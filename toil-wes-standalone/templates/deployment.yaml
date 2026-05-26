@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "toil-wes-standalone.fullname" . }}
+  labels:
+    {{- include "toil-wes-standalone.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "toil-wes-standalone.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "toil-wes-standalone.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "toil-wes-standalone.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: toil-wes
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-lc"]
+          args:
+            - |
+              python - <<'PY'
+              from pathlib import Path
+
+              jobstore = Path('/usr/local/lib/python3.13/dist-packages/toil/jobStores/aws/jobStore.py')
+              if jobstore.exists():
+                  source = jobstore.read_text(encoding='utf-8')
+                  source = source.replace('public=True,', 'public=False,')
+                  source = source.replace('encryptable=True,', 'encryptable=False,')
+                  jobstore.write_text(source, encoding='utf-8')
+              PY
+              cat > /tmp/sitecustomize.py <<'PY'
+              from botocore.config import Config
+
+              try:
+                  from toil.lib.aws.session import AWSConnectionManager
+
+                  _orig_client = AWSConnectionManager.client
+                  _orig_resource = AWSConnectionManager.resource
+
+                  def _patched_client(self, region, service_name, endpoint_url=None, config=None):
+                      if service_name == 's3':
+                          if config is None:
+                              config = Config(s3={'addressing_style': 'path'})
+                      return _orig_client(self, region, service_name, endpoint_url=endpoint_url, config=config)
+
+                  def _patched_resource(self, region, service_name, endpoint_url=None, config=None):
+                      if service_name == 's3':
+                          if config is None:
+                              config = Config(s3={'addressing_style': 'path'})
+                      return _orig_resource(self, region, service_name, endpoint_url=endpoint_url, config=config)
+
+                  AWSConnectionManager.client = _patched_client
+                  AWSConnectionManager.resource = _patched_resource
+              except Exception:
+                  pass
+              PY
+              export PYTHONPATH="/tmp:${PYTHONPATH}"
+
+              exec toil server \
+                --host=0.0.0.0 \
+                --port={{ .Values.service.port }} \
+                --bypass_celery \
+                --work_dir=/workflows \
+                --state_store=/workflows/state_store \
+                --opt=--batchSystem=kubernetes \
+                --opt=--logInfo \
+                --opt=--setEnv=AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+                --opt=--setEnv=AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY} \
+                --opt=--setEnv=AWS_DEFAULT_REGION={{ .Values.awsRegion }} \
+                --opt=--setEnv=AWS_ENDPOINT_URL={{ .Values.s3.endpointUrl }} \
+                --opt=--setEnv=BOTO3_ENDPOINT_URL={{ .Values.s3.endpointUrl }} \
+                --opt=--setEnv=AWS_S3_ADDRESSING_STYLE={{ .Values.s3.addressingStyle }} \
+                --opt=--setEnv=TOIL_S3_HOST={{ .Values.s3.host }} \
+                --opt=--setEnv=TOIL_S3_PORT={{ .Values.s3.port }} \
+                --opt=--setEnv=TOIL_S3_USE_SSL={{ ternary "True" "False" .Values.s3.useSsl }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.awsRegion | quote }}
+            - name: AWS_ENDPOINT_URL
+              value: {{ .Values.s3.endpointUrl | quote }}
+            - name: BOTO3_ENDPOINT_URL
+              value: {{ .Values.s3.endpointUrl | quote }}
+            - name: AWS_S3_ADDRESSING_STYLE
+              value: {{ .Values.s3.addressingStyle | quote }}
+            - name: TOIL_S3_HOST
+              value: {{ .Values.s3.host | quote }}
+            - name: TOIL_S3_PORT
+              value: {{ .Values.s3.port | quote }}
+            - name: TOIL_S3_USE_SSL
+              value: {{ ternary "True" "False" .Values.s3.useSsl | quote }}
+            - name: TOIL_WES_JOB_STORE_TYPE
+              value: "aws"
+            - name: TOIL_APPLIANCE_SELF
+              value: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "toil-wes-standalone.s3CredentialsSecretName" . }}
+                  key: {{ .Values.s3.credentials.accessKeyKey | quote }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "toil-wes-standalone.s3CredentialsSecretName" . }}
+                  key: {{ .Values.s3.credentials.secretKeyKey | quote }}
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
