@@ -39,6 +39,24 @@ env: {}
 
 resources: {}
 
+# Pod-level security context.
+# On clusters where user namespaces are restricted (user.max_user_namespaces=0
+# or seccomp/AppArmor policies blocking clone()), Singularity cannot extract
+# SIF images and fails with "Operation not permitted".
+# Setting podSecurityContext.sysctls is the cleanest fix when the cluster
+# allows unsafe sysctls on pods (requires kubelet --allowed-unsafe-sysctls).
+# Alternatively, set securityContext.privileged=true on the container (less secure).
+podSecurityContext: {}
+# podSecurityContext:
+#   sysctls:
+#     - name: user.max_user_namespaces
+#       value: "15000"
+
+# Container-level security context.
+securityContext: {}
+# securityContext:
+#   privileged: true  # allows Singularity to create user namespaces
+
 nodeSelector: {}
 affinity: {}
 tolerations: []

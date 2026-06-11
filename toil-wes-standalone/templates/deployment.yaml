@@ -19,10 +19,18 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: toil-wes
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           command: ["sh", "-lc"]
           args:
             - |
@@ -80,7 +88,12 @@ spec:
                 --opt=--setEnv=AWS_S3_ADDRESSING_STYLE={{ .Values.s3.addressingStyle }} \
                 --opt=--setEnv=TOIL_S3_HOST={{ .Values.s3.host }} \
                 --opt=--setEnv=TOIL_S3_PORT={{ .Values.s3.port }} \
-                --opt=--setEnv=TOIL_S3_USE_SSL={{ ternary "True" "False" .Values.s3.useSsl }}
+                --opt=--setEnv=TOIL_S3_USE_SSL={{ ternary "True" "False" .Values.s3.useSsl }} \
+                --opt=--setEnv=SINGULARITY_DISABLE_CACHE=1 \
+                --opt=--setEnv=APPTAINER_DISABLE_CACHE=1 \
+                --opt=--setEnv=APPTAINER_FAKEROOT=1 \
+                --opt=--setEnv=SINGULARITY_FAKEROOT=1 \
+                --opt=--disableCaching
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
